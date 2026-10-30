@@ -434,7 +434,7 @@ a:hover {
 #hero h1 span {
   font-weight: 100;
   font-size: 50px;
-
+  color: var(--primary-color);
 }
 
 #hero h2 span {

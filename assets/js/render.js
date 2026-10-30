@@ -15,7 +15,7 @@
   const NOTE_MARK = "►"; // ►
 
   async function fetchJSON(path) {
-    const res = await fetch(path);
+    const res = await fetch(path, { cache: "no-store" });
     if (!res.ok) {
       throw new Error("Failed to load " + path + " (" + res.status + ")");
     }
@@ -204,7 +204,8 @@
   }
 
   async function loadFromWorkbook() {
-    const res = await fetch(WORKBOOK_PATH);
+    // no-store: always read the latest saved spreadsheet, never a cached copy
+    const res = await fetch(WORKBOOK_PATH, { cache: "no-store" });
     if (!res.ok) return null;
 
     const buffer = await res.arrayBuffer();

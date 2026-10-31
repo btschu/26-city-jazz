@@ -434,6 +434,10 @@ a:hover {
 #hero h1 span {
   font-weight: 100;
   font-size: 50px;
+}
+
+/* Big Title Line 2 (the concert name) carries the primary color */
+#hero #concert-name {
   color: var(--primary-color);
 }
 

@@ -28,8 +28,74 @@ The spreadsheet explains itself: it opens on a **Start Here** tab with step-by-s
 - **Extra columns** on the Concert Info tab (Help, Example) are ignored; only the label (column A) and answer (column B) are read.
 - **Older spreadsheets** (with the previous labels such as "Concert Title Line 1") still load correctly.
 
+## Starting a new concert (start to finish)
+
+You don't need VS Code for any of this. You need the Terminal app (press Cmd+Space, type "Terminal", press Enter), a free GitHub account and a Netlify account.
+
+**1. Make a copy of the template.** Copy the whole `concert_program_template` folder and rename the copy (for example `2027-city-jazz`). Then delete the hidden `.git` folder inside the copy. If you keep it, the copy is still connected to the template's GitHub repo. In Finder, press Cmd+Shift+. to show hidden files, or in Terminal (from inside the copy):
+
+```bash
+rm -rf .git
+```
+
+**2. Fill in the spreadsheet.** Edit `data/concert-data.xlsx`, or send it out and save the returned file over it. The file name must stay exactly `concert-data.xlsx` and it must be saved inside the `data` folder. Skip any boxes you don't need.
+
+**3. Preview it.** In Terminal, go into the project folder: type `cd ` (with a space after it), drag the project folder from Finder into the Terminal window, and press Enter. Then run:
+
+```bash
+python3 -m http.server 8000
+```
+
+Open `http://localhost:8000` in your browser. After changing the spreadsheet, save it and refresh the page. Press Ctrl+C in Terminal to stop the preview. (Opening `index.html` by double-clicking won't work; browsers block loading the spreadsheet that way.)
+
+**4. Put it on GitHub (first time only).** On github.com, click New repository, give it the same name as the folder, leave "Add a README" unchecked, and create it. GitHub then shows a page of commands; the first four below are the same ones, with your repo's address in the last line. In Terminal, inside the project folder:
+
+```bash
+git init
+```
+
+```bash
+git add -A
+```
+
+```bash
+git commit -m "First commit"
+```
+
+```bash
+git branch -M main
+```
+
+```bash
+git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO.git
+```
+
+```bash
+git push -u origin main
+```
+
+**5. Publish it on Netlify (first time only).** In Netlify, choose Add new site, then Import an existing project, then GitHub, and pick the repo. This is a plain static site, so leave the build command empty and leave the publish directory as the default, then click Deploy. Under Site configuration you can change the site name, which sets the address (for example `2027-city-jazz.netlify.app`). The button names may be worded a little differently as Netlify updates its pages.
+
+**6. Updating it later.** Change the spreadsheet, save it, then in Terminal inside the project folder:
+
+```bash
+git add -A
+```
+
+```bash
+git commit -m "Update program"
+```
+
+```bash
+git push
+```
+
+Netlify notices the push and republishes automatically, usually within a minute. There is no separate "deploy" step once the site is linked to the repo.
+
+**Skipping GitHub (quick one-off):** drag the project folder onto app.netlify.com/drop. It publishes in seconds but keeps no history, and every later change needs another drag.
+
 ## Previewing locally
 
-The spreadsheet is read in the browser (using the bundled SheetJS library in `assets/vendor/xlsx`), which browsers block on `file://` pages. To preview, run a local server from the project folder, e.g. `python3 -m http.server`, then open `http://localhost:8000`. Once deployed to Netlify it works normally.
+The spreadsheet is read in the browser (using the bundled SheetJS library in `assets/vendor/xlsx`), which browsers block on `file://` pages. That's why step 3 above uses a local server. Once deployed to Netlify it works normally.
 
 If `concert-data.xlsx` is missing, the site falls back to `concert-info.json`, `program.json` and `students.json` in this folder.

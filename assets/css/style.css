@@ -431,9 +431,16 @@ a:hover {
   font-family: var(--primary-title-font);
 }
 
+/* Big Title Line 1: small, light, letter-spaced capitals above the large script Line 2 */
 #hero h1 span {
-  font-weight: 100;
-  font-size: 50px;
+  display: block; /* so the small line-height applies, even when a long name wraps */
+  font-family: "Poppins", sans-serif;
+  font-weight: 300;
+  font-size: 20px;
+  line-height: 26px;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  padding-left: 0.28em; /* balances the spacing after the last letter so it stays centered */
 }
 
 /* Big Title Line 2 (the concert name) carries the primary color */
@@ -588,8 +595,8 @@ a:hover {
   }
   
   #hero h1 span{
-    font-size: 34px;
-    line-height: 36px;
+    font-size: 14px;
+    line-height: 20px;
   }
 
   #hero h2 {

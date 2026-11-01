@@ -66,6 +66,7 @@
     ["hero image (leave as is)", "heroImage"],
     ["primary color (optional)", "primaryColor"],
     ["primary color", "primaryColor"],
+    ["background dimming (optional)", "backgroundDimming"],
     // older labels
     ["concert title line 1", "concertTitleLine1"],
     ["concert title line 2", "concertTitleLine2"],
@@ -279,6 +280,14 @@
     const accent = (info.primaryColor || "").replace(/\s+/g, "");
     if (accent && window.CSS && CSS.supports("color", accent)) {
       document.documentElement.style.setProperty("--primary-color", accent);
+    }
+
+    // Optional background dimming: a number from 0 (no dimming) to 100 (black).
+    // Empty or not a number keeps the default (50).
+    const dimText = (info.backgroundDimming || "").toString().replace("%", "").trim();
+    if (dimText !== "" && !isNaN(Number(dimText))) {
+      const dim = Math.min(100, Math.max(0, Number(dimText)));
+      document.documentElement.style.setProperty("--hero-dim", String(dim / 100));
     }
 
     const hero = document.getElementById("hero");

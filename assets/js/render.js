@@ -1,5 +1,6 @@
 /**
- * Loads data/concert-data.xlsx (Concert Info, Program, and one tab per
+ * Loads the concert spreadsheet from the data folder (data/workbook.txt, written when the
+ * site is published, names the file; otherwise data/concert-data.xlsx) (Concert Info, Program, and one tab per
  * performing group) and renders it into the page, so the site content can
  * be edited without touching index.html. Falls back to data/concert-info.json,
  * data/program.json and data/students.json if concert-data.xlsx is missing.
@@ -7,7 +8,7 @@
 (function () {
   "use strict";
 
-  const WORKBOOK_PATH = "data/concert-data.xlsx";
+  const DEFAULT_WORKBOOK = "data/concert-data.xlsx";
   const RESERVED_SHEET_NAMES = new Set(["start here", "instructions", "example", "concert info", "program"]);
 
   // Rows whose first cell starts with this mark are instructions for the
@@ -204,10 +205,38 @@
     return { name: sheetName, sections: sections };
   }
 
+  // The publishing step (scripts/find-workbook.sh) writes the spreadsheet's file name to
+  // data/workbook.txt, so each concert's spreadsheet can be named after the concert.
+  // Without that file (local preview, older sites) we use data/concert-data.xlsx.
+  async function workbookCandidates() {
+    const candidates = [];
+    try {
+      const res = await fetch("data/workbook.txt", { cache: "no-store" });
+      if (res.ok) {
+        const name = (await res.text()).trim();
+        if (/\.xlsx$/i.test(name) && name.indexOf("/") === -1 && name.indexOf("\\") === -1 && name.indexOf("..") === -1) {
+          candidates.push("data/" + encodeURIComponent(name));
+        }
+      }
+    } catch (err) {
+      // no workbook.txt: fall through to the default name
+    }
+    if (candidates.indexOf(DEFAULT_WORKBOOK) === -1) candidates.push(DEFAULT_WORKBOOK);
+    return candidates;
+  }
+
   async function loadFromWorkbook() {
-    // no-store: always read the latest saved spreadsheet, never a cached copy
-    const res = await fetch(WORKBOOK_PATH, { cache: "no-store" });
-    if (!res.ok) return null;
+    let res = null;
+    const candidates = await workbookCandidates();
+    for (let i = 0; i < candidates.length; i++) {
+      // no-store: always read the latest saved spreadsheet, never a cached copy
+      const attempt = await fetch(candidates[i], { cache: "no-store" });
+      if (attempt.ok) {
+        res = attempt;
+        break;
+      }
+    }
+    if (!res) return null;
 
     const buffer = await res.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: "array" });
@@ -238,7 +267,7 @@
         const fromWorkbook = await loadFromWorkbook();
         if (fromWorkbook) return fromWorkbook;
       } catch (err) {
-        console.error("Failed to read " + WORKBOOK_PATH + ", falling back to individual JSON files:", err);
+        console.error("Failed to read the concert spreadsheet, falling back to individual JSON files:", err);
       }
     }
 

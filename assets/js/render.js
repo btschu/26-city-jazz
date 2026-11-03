@@ -6,7 +6,7 @@
  *      Small and quick, so visitors don't have to download the spreadsheet reader.
  *   2. The spreadsheet itself, read right here in the browser. Used when site-data.json isn't there
  *      (for example in a local preview). data/workbook.txt, also made when publishing, names the file;
- *      otherwise it's data/concert-data.xlsx.
+ *      without it, the one spreadsheet in the data folder is used (or data/concert-data.xlsx).
  *   3. Older sites: data/concert-info.json, data/program.json and data/students.json.
  */
 (function () {
@@ -45,32 +45,59 @@
     return null;
   }
 
-  // The publishing step (scripts/find-workbook.sh) writes the spreadsheet's file name to
-  // data/workbook.txt, so each concert's spreadsheet can be named after the concert.
-  // Without that file (local preview, older sites) we use data/concert-data.xlsx.
-  async function workbookCandidates() {
-    const candidates = [];
+  function safeWorkbookName(name) {
+    return /\.xlsx$/i.test(name) && !/[\/\\]/.test(name) && name.indexOf("..") === -1;
+  }
+
+  // Where to look for the spreadsheet, best guess first:
+  //   1. data/workbook.txt, written by the publishing step (scripts/find-workbook.sh).
+  //   2. The folder listing of data/ that a local preview server (Live Server, python) shows: the one
+  //      .xlsx there that isn't the blank starter, an example or an Excel temp file.
+  //   3. data/concert-data.xlsx.
+  // Each is only tried if the one before it didn't turn up a spreadsheet.
+  async function* workbookCandidates() {
     try {
       const res = await fetch("data/workbook.txt", { cache: "no-store" });
       if (res.ok) {
         const name = (await res.text()).trim();
-        if (/\.xlsx$/i.test(name) && name.indexOf("/") === -1 && name.indexOf("\\") === -1 && name.indexOf("..") === -1) {
-          candidates.push("data/" + encodeURIComponent(name));
-        }
+        if (safeWorkbookName(name)) yield "data/" + encodeURIComponent(name);
       }
     } catch (err) {
-      // no workbook.txt: fall through to the default name
+      // no workbook.txt: try the folder listing
     }
-    if (candidates.indexOf(DEFAULT_WORKBOOK) === -1) candidates.push(DEFAULT_WORKBOOK);
-    return candidates;
+
+    try {
+      const res = await fetch("data/", { cache: "no-store" });
+      if (res.ok) {
+        const found = [];
+        const links = (await res.text()).match(/href\s*=\s*"[^"]*\.xlsx"/gi) || [];
+        links.forEach(function (link) {
+          const href = link.slice(link.indexOf('"') + 1, -1).split(/[?#]/)[0];
+          let name = href.split("/").pop();
+          try {
+            name = decodeURIComponent(name);
+          } catch (err) {
+            // keep the name as written
+          }
+          if (safeWorkbookName(name) && !/^~\$|example/i.test(name) && name.toLowerCase() !== "concert-data.xlsx" && found.indexOf(name) === -1) {
+            found.push(name);
+          }
+        });
+        found.sort();
+        if (found.length) yield "data/" + encodeURIComponent(found[0]);
+      }
+    } catch (err) {
+      // no folder listing (the published site doesn't have one, and doesn't need it)
+    }
+
+    yield DEFAULT_WORKBOOK;
   }
 
   async function loadFromWorkbook() {
     let res = null;
-    const candidates = await workbookCandidates();
-    for (let i = 0; i < candidates.length; i++) {
+    for await (const candidate of workbookCandidates()) {
       // no-store: always read the latest saved spreadsheet, never a cached copy
-      const attempt = await fetch(candidates[i], { cache: "no-store" });
+      const attempt = await fetch(candidate, { cache: "no-store" });
       if (attempt.ok) {
         res = attempt;
         break;

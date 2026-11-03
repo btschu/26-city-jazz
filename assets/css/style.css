@@ -5,7 +5,7 @@
   /* fonts */
   --primary-title-font: "Kaushan Script", "Playfair Display", serif;
   --secondary-title-font: "Caveat", "Playfair Display", serif;
-  --default-font: "Open Sans", sans-serif;
+  --default-font: "Poppins", sans-serif;
   /* colors */
   --primary-color: #f7e93b;
   --black-color: #000000;
@@ -387,13 +387,20 @@ a:hover {
 --------------------------------------------------------------*/
 #hero {
   width: 100%;
-  height: 100svh;
-  background: url("../img/hero-bg.JPG") bottom center;
+  min-height: 100svh;
+  background: url("../img/hero-bg.jpg") bottom center;
   background-size: cover;
   background-repeat: no-repeat;
   position: relative;
   /* background-color: #f7e93b; */
-  padding: 0;
+  padding: 100px 0; /* leaves room for the fixed header, so tall content isn't clipped */
+}
+
+/* Keep the top of the page hidden until the real content is in, so the template's placeholder
+   text never flashes. render.js adds "data-ready" to the page when it's done. */
+body:not(.data-ready) #hero .container,
+body:not(.data-ready) #header .logo {
+  visibility: hidden;
 }
 
 #hero:before {
@@ -418,7 +425,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 600px;
+  min-height: 400px;
 }
 
 #hero img {
@@ -440,8 +447,9 @@ a:hover {
 }
 
 /* Big Title Line 1: small, light, letter-spaced capitals above the large script Line 2 */
-#hero h1 span {
+#hero h1 #concert-school-name {
   display: block; /* so the small line-height applies, even when a long name wraps */
+  margin-bottom: 1.6rem;
   font-family: "Poppins", sans-serif;
   font-weight: 300;
   font-size: 20px;
@@ -453,6 +461,7 @@ a:hover {
 
 /* Big Title Line 2 (the concert name) carries the primary color */
 #hero #concert-name {
+  display: block;
   color: var(--primary-color);
 }
 
@@ -474,6 +483,7 @@ a:hover {
 }
 
 #hero .btns {
+  display: flex;
   margin-top: 30px;
   justify-content: center;
 }
@@ -501,92 +511,11 @@ a:hover {
 
 #hero .btn-book {
   margin: 0;
-  position: absolute;
-  left: 50%;
-  -ms-transform: translate(-50%, -50%);
-  transform: translate(-50%, -50%);
-}
-
-#hero .play-btn {
-  width: 94px;
-  height: 94px;
-  background: radial-gradient(var(--primary-color);) 50%, rgba(205, 164, 94, 0.4) 52%);
-  border-radius: 50%;
-  display: block;
-  position: relative;
-  overflow: hidden;
-}
-
-#hero .play-btn::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translateX(-40%) translateY(-50%);
-  width: 0;
-  height: 0;
-  border-top: 10px solid transparent;
-  border-bottom: 10px solid transparent;
-  border-left: 15px solid var(--white-color);
-  z-index: 100;
-  transition: all 400ms cubic-bezier(0.55, 0.055, 0.675, 0.19);
-}
-
-#hero .play-btn::before {
-  content: "";
-  position: absolute;
-  width: 120px;
-  height: 120px;
-  -webkit-animation-delay: 0s;
-  animation-delay: 0s;
-  -webkit-animation: pulsate-btn 2s;
-  animation: pulsate-btn 2s;
-  -webkit-animation-direction: forwards;
-  animation-direction: forwards;
-  -webkit-animation-iteration-count: infinite;
-  animation-iteration-count: infinite;
-  -webkit-animation-timing-function: steps;
-  animation-timing-function: steps;
-  opacity: 1;
-  border-radius: 50%;
-  border: 5px solid rgba(205, 164, 94, 0.7);
-  top: -15%;
-  left: -15%;
-  background: rgba(198, 16, 0, 0);
-}
-
-#hero .play-btn:hover::after {
-  border-left: 15px solid var(--primary-color);
-  transform: scale(20);
-}
-
-#hero .play-btn:hover::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translateX(-40%) translateY(-50%);
-  width: 0;
-  height: 0;
-  border: none;
-  border-top: 10px solid transparent;
-  border-bottom: 10px solid transparent;
-  border-left: 15px solid var(--white-color);
-  z-index: 200;
-  -webkit-animation: none;
-  animation: none;
-  border-radius: 0;
 }
 
 @media (min-width: 1024px) {
   #hero {
     background-attachment: fixed;
-  }
-}
-
-@media (max-width: 992px) {
-  #hero .play-btn {
-    margin-top: 30px;
   }
 }
 
@@ -602,9 +531,10 @@ a:hover {
     line-height: 36px;
   }
   
-  #hero h1 span{
+  #hero h1 #concert-school-name {
     font-size: 14px;
     line-height: 20px;
+    margin-bottom: 1.1rem;
   }
 
   #hero h2 {
@@ -616,30 +546,6 @@ a:hover {
     left: 8px;
     bottom: 14px;
     width: 100px
-  }
-}
-
-@-webkit-keyframes pulsate-btn {
-  0% {
-    transform: scale(0.6, 0.6);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scale(1, 1);
-    opacity: 0;
-  }
-}
-
-@keyframes pulsate-btn {
-  0% {
-    transform: scale(0.6, 0.6);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scale(1, 1);
-    opacity: 0;
   }
 }
 
@@ -809,6 +715,16 @@ section {
   padding-top: 30px;
 }
 
+/* the "Program created by" name uses the primary color */
+#footer .copyright span {
+  color: var(--primary-color);
+}
+
+/* the "Thank You" heading matches the other section titles (Program, Students) */
+#footer #thank-you-heading {
+  color: var(--primary-color);
+}
+
 #sticky-footer {
   position: fixed;
   width: 100%;
@@ -817,4 +733,159 @@ section {
   z-index: 50;
   background: rgba(12, 11, 9, 0.6);
   border-top: 1px solid rgba(12, 11, 9, 0.6);
+}
+
+/*--------------------------------------------------------------
+# Keyboard focus (group filter buttons, bio buttons)
+--------------------------------------------------------------*/
+#students-filters li:focus-visible,
+.bio-btn:focus-visible,
+.bio-close:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 3px;
+}
+
+/*--------------------------------------------------------------
+# Director bio pop-up
+--------------------------------------------------------------*/
+#bio-dialog {
+  width: calc(100% - 32px);
+  max-width: 640px;
+  max-height: 86vh;
+  padding: 0;
+  overflow: auto;
+  border: 2px solid var(--primary-color);
+  border-radius: 12px;
+  background: #1b1d21;
+  color: var(--white-color);
+}
+
+#bio-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.bio-dialog-inner {
+  position: relative;
+  padding: 28px 24px 24px;
+  text-align: left;
+}
+
+.bio-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  border: 0;
+  background: none;
+  color: var(--white-color);
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bio-photo {
+  display: block;
+  margin: 0 auto 16px;
+  max-width: 220px;
+  width: 60%;
+  border-radius: 12px;
+}
+
+#bio-dialog h3 {
+  margin: 0;
+  text-align: center;
+  font-family: var(--primary-title-font);
+  color: var(--primary-color);
+}
+
+.bio-group {
+  margin: 2px 0 16px;
+  text-align: center;
+  opacity: 0.8;
+}
+
+#bio-dialog-text p {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+/*--------------------------------------------------------------
+# Printing: plain black text on white, every group shown, no buttons or photo
+--------------------------------------------------------------*/
+@media print {
+  #header,
+  #preloader,
+  .back-to-top,
+  #students-filters,
+  #bios-block,
+  #livestream-block,
+  #bio-dialog,
+  #hero:before {
+    display: none !important;
+  }
+
+  body,
+  #hero,
+  section,
+  .section-bg,
+  #footer {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  body:not(.data-ready) #hero .container,
+  body:not(.data-ready) #header .logo {
+    visibility: visible !important;
+  }
+
+  #hero {
+    min-height: 0 !important;
+    padding: 0 0 12px !important;
+    background-image: none !important;
+  }
+
+  #hero .container {
+    min-height: 0;
+    border-left: 0;
+  }
+
+  section {
+    padding: 14px 0 !important;
+  }
+
+  * {
+    color: #000 !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  hr {
+    border-top: 1px solid #000 !important;
+    opacity: 1 !important;
+  }
+
+  .program-container,
+  .students-container {
+    height: auto !important;
+  }
+
+  .program-item,
+  .students-item {
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    display: block !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .students .box {
+    background: #fff !important;
+    border: 1px solid #999;
+    margin-bottom: 12px;
+  }
+
+  [data-aos] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }

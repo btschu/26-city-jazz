@@ -1,19 +1,19 @@
 /**
- * Loads the concert spreadsheet from the data folder (data/workbook.txt, written when the
- * site is published, names the file; otherwise data/concert-data.xlsx) (Concert Info, Program, and one tab per
- * performing group) and renders it into the page, so the site content can
- * be edited without touching index.html. Falls back to data/concert-info.json,
- * data/program.json and data/students.json if concert-data.xlsx is missing.
+ * Fills the page from the concert data.
+ *
+ * Where the data comes from, fastest first:
+ *   1. data/site-data.json - made by Netlify each time the site is published (scripts/prepare-site.js).
+ *      Small and quick, so visitors don't have to download the spreadsheet reader.
+ *   2. The spreadsheet itself, read right here in the browser. Used when site-data.json isn't there
+ *      (for example in a local preview). data/workbook.txt, also made when publishing, names the file;
+ *      otherwise it's data/concert-data.xlsx.
+ *   3. Older sites: data/concert-info.json, data/program.json and data/students.json.
  */
 (function () {
   "use strict";
 
+  const SITE_DATA = "data/site-data.json";
   const DEFAULT_WORKBOOK = "data/concert-data.xlsx";
-  const RESERVED_SHEET_NAMES = new Set(["start here", "instructions", "example", "concert info", "program"]);
-
-  // Rows whose first cell starts with this mark are instructions for the
-  // person filling out the spreadsheet, and are ignored when reading it.
-  const NOTE_MARK = "►"; // ►
 
   async function fetchJSON(path) {
     const res = await fetch(path, { cache: "no-store" });
@@ -23,186 +23,26 @@
     return res.json();
   }
 
-  function cellText(value) {
-    return value === undefined || value === null ? "" : value.toString().trim();
-  }
-
-  function normalizeLabel(value) {
-    return cellText(value).toLowerCase().replace(/\s+/g, " ");
-  }
-
-  // Rows of a sheet as arrays of cell text (as displayed in Excel), minus
-  // the instruction rows.
-  function readRows(sheet) {
-    return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false }).filter(function (row) {
-      return cellText(row[0]).indexOf(NOTE_MARK) !== 0;
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = function () {
+        reject(new Error("Could not load " + src));
+      };
+      document.head.appendChild(script);
     });
   }
 
-  function splitLines(value) {
-    return (value === undefined || value === null ? "" : value.toString())
-      .split(/\r\n|\r|\n/)
-      .map(function (line) {
-        return line.trim();
-      })
-      .filter(Boolean);
-  }
-
-  // "Concert Info" tab: label in column A, answer in column B. Anything in
-  // other columns (help text, examples) is ignored. "Director" and "Person
-  // or Group to Thank" can repeat on as many rows as needed. The older
-  // labels (e.g. "Concert Title Line 1") are still understood.
-  const INFO_FIELDS = new Map([
-    ["big title line 1 - school or group name", "concertTitleLine1"],
-    ["big title line 2 - name of the concert", "concertTitleLine2"],
-    ["date", "concertDate"],
-    ["time", "concertTime"],
-    ["location", "concertLocation"],
-    ["director", "directors"],
-    ["accompanist (optional)", "accompanist"],
-    ["person or group to thank (optional)", "thankYou"],
-    ["closing message", "closingStatement"],
-    ["browser tab title (optional)", "websiteTitle"],
-    ["top-left header text (optional)", "headerTitle"],
-    ["hero image (leave as is)", "heroImage"],
-    ["primary color (optional)", "primaryColor"],
-    ["primary color", "primaryColor"],
-    ["background dimming (optional)", "backgroundDimming"],
-    // older labels
-    ["concert title line 1", "concertTitleLine1"],
-    ["concert title line 2", "concertTitleLine2"],
-    ["concert date", "concertDate"],
-    ["concert time", "concertTime"],
-    ["concert location", "concertLocation"],
-    ["accompanist", "accompanist"],
-    ["thank you", "thankYou"],
-    ["closing statement", "closingStatement"],
-    ["website title", "websiteTitle"],
-    ["header title", "headerTitle"],
-    ["hero image", "heroImage"],
-  ]);
-  const INFO_LIST_FIELDS = new Set(["directors", "thankYou"]);
-
-  function parseConcertInfoSheet(sheet) {
-    const info = { directors: [], thankYou: [] };
-
-    readRows(sheet).forEach(function (row) {
-      const key = INFO_FIELDS.get(normalizeLabel(row[0]));
-      if (!key) return;
-
-      const value = cellText(row[1]);
-      if (INFO_LIST_FIELDS.has(key)) {
-        if (value) info[key].push(value);
-      } else {
-        info[key] = value;
-      }
-    });
-
-    return info;
-  }
-
-  // "Program" tab: one row per song. The header row is found by looking for
-  // the song-title column, so instructions above it are fine. A blank Group
-  // cell continues the previous row's group. The notes cell supports
-  // multiple lines (Alt+Enter in Excel) for multiple soloists. Rows without
-  // a song title are skipped, so unused rows can stay blank.
-  const PROGRAM_HEADERS = {
-    group: ["group name", "group", "ensemble"],
-    title: ["song title", "title", "song"],
-    composer: ["composer / arranger", "composer/arranger", "composer", "arranger"],
-    info: ["soloists or notes (optional)", "soloists or notes", "info", "soloist", "notes"],
-  };
-
-  function findColumn(headers, names) {
-    return headers.findIndex(function (h) {
-      return names.indexOf(h) !== -1;
-    });
-  }
-
-  function parseProgramSheet(sheet) {
-    const rows = readRows(sheet);
-    const headerIndex = rows.findIndex(function (row) {
-      return findColumn(row.map(normalizeLabel), PROGRAM_HEADERS.title) !== -1;
-    });
-    if (headerIndex === -1) return { groups: [] };
-
-    const headers = rows[headerIndex].map(normalizeLabel);
-    const groupCol = findColumn(headers, PROGRAM_HEADERS.group);
-    const titleCol = findColumn(headers, PROGRAM_HEADERS.title);
-    const composerCol = findColumn(headers, PROGRAM_HEADERS.composer);
-    const infoCol = findColumn(headers, PROGRAM_HEADERS.info);
-
-    const groups = [];
-    const groupsByName = new Map();
-    let lastGroupName = "";
-
-    rows.slice(headerIndex + 1).forEach(function (row) {
-      const title = cellText(row[titleCol]);
-      if (!title) return;
-
-      let groupName = groupCol === -1 ? "" : cellText(row[groupCol]);
-      if (groupName) {
-        lastGroupName = groupName;
-      } else {
-        groupName = lastGroupName;
-      }
-      if (!groupName) return;
-
-      const composer = composerCol === -1 ? "" : cellText(row[composerCol]);
-      const info = infoCol === -1 ? [] : splitLines(row[infoCol]);
-
-      let group = groupsByName.get(groupName);
-      if (!group) {
-        group = { name: groupName, songs: [] };
-        groupsByName.set(groupName, group);
-        groups.push(group);
-      }
-      group.songs.push({ title: title, composer: composer, info: info });
-    });
-
-    return { groups: groups };
-  }
-
-  // A student group tab: the first row is the instrument names (one per
-  // column) and the names go underneath. Columns may be different lengths.
-  // Instruments with no students are left out, and a tab with no students
-  // at all is skipped, so spare columns and spare tabs can stay as they are.
-  // A tab that only has one column is shown as a plain list with no
-  // instrument heading (e.g. a single-instrument class).
-  function parseStudentGroupSheet(sheet, sheetName) {
-    const rows = readRows(sheet);
-    if (!rows.length) return null;
-
-    const headerRow = rows[0];
-    const dataRows = rows.slice(1);
-    const columnCount = dataRows.reduce(function (max, r) {
-      return Math.max(max, r.length);
-    }, headerRow.length);
-
-    const columns = [];
-    for (let c = 0; c < columnCount; c++) {
-      const header = cellText(headerRow[c]);
-      const values = dataRows
-        .map(function (r) {
-          return cellText(r[c]);
-        })
-        .filter(Boolean);
-      if (header || values.length) columns.push({ header: header, values: values });
+  async function loadPreparedData() {
+    try {
+      const res = await fetch(SITE_DATA);
+      if (res.ok) return await res.json();
+    } catch (err) {
+      // not there: fall through to reading the spreadsheet
     }
-
-    const sections =
-      columns.length === 1
-        ? [{ instrument: "", students: columns[0].values }]
-        : columns
-            .filter(function (c) {
-              return c.values.length;
-            })
-            .map(function (c) {
-              return { instrument: c.header, students: c.values };
-            });
-
-    if (!sections.some(function (s) { return s.students.length; })) return null;
-    return { name: sheetName, sections: sections };
+    return null;
   }
 
   // The publishing step (scripts/find-workbook.sh) writes the spreadsheet's file name to
@@ -238,37 +78,23 @@
     }
     if (!res) return null;
 
-    const buffer = await res.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: "array" });
+    // the spreadsheet reader is big, so it is only downloaded when it's actually needed
+    if (typeof XLSX === "undefined") await loadScript("assets/vendor/xlsx/xlsx.full.min.js");
+    if (typeof ConcertParser === "undefined") await loadScript("assets/js/parse-workbook.js");
 
-    let info = { directors: [], thankYou: [] };
-    let program = { groups: [] };
-    const studentGroups = [];
-
-    workbook.SheetNames.forEach(function (name) {
-      const normalized = name.trim().toLowerCase();
-      const sheet = workbook.Sheets[name];
-      if (normalized === "concert info") {
-        info = parseConcertInfoSheet(sheet);
-      } else if (normalized === "program") {
-        program = parseProgramSheet(sheet);
-      } else if (!RESERVED_SHEET_NAMES.has(normalized)) {
-        const group = parseStudentGroupSheet(sheet, name);
-        if (group) studentGroups.push(group);
-      }
-    });
-
-    return { info: info, program: program, students: { groups: studentGroups } };
+    const workbook = XLSX.read(await res.arrayBuffer(), { type: "array" });
+    return ConcertParser.parseWorkbook(XLSX, workbook);
   }
 
   async function loadConcertData() {
-    if (typeof XLSX !== "undefined") {
-      try {
-        const fromWorkbook = await loadFromWorkbook();
-        if (fromWorkbook) return fromWorkbook;
-      } catch (err) {
-        console.error("Failed to read the concert spreadsheet, falling back to individual JSON files:", err);
-      }
+    const prepared = await loadPreparedData();
+    if (prepared) return prepared;
+
+    try {
+      const fromWorkbook = await loadFromWorkbook();
+      if (fromWorkbook) return fromWorkbook;
+    } catch (err) {
+      console.error("Failed to read the concert spreadsheet, falling back to individual JSON files:", err);
     }
 
     const [info, program, students] = await Promise.all([
@@ -276,7 +102,7 @@
       fetchJSON("data/program.json"),
       fetchJSON("data/students.json"),
     ]);
-    return { info: info, program: program, students: students };
+    return { info: info, program: program, students: students, bios: [] };
   }
 
   function el(tag, opts = {}) {
@@ -388,6 +214,19 @@
       }
     }
 
+    // Optional livestream button: shown only when a web address (http or https) is filled in.
+    const liveBlock = document.getElementById("livestream-block");
+    const liveLink = document.getElementById("livestream-link");
+    if (liveBlock && liveLink) {
+      const liveUrl = (info.livestreamLink || "").trim();
+      if (/^https?:\/\//i.test(liveUrl)) {
+        liveLink.href = liveUrl;
+        liveBlock.style.display = "flex";
+      } else {
+        liveBlock.style.display = "none";
+      }
+    }
+
     const thankYouHeading = document.getElementById("thank-you-heading");
     const thankYouWrap = document.getElementById("thank-you-wrap");
     const thankYouList = document.getElementById("thank-you-list");
@@ -410,6 +249,79 @@
     if (closing) closing.textContent = info.closingStatement || "Thank you for your support!";
   }
 
+  // Optional director bios: one button per director in the top section. Each opens a pop-up
+  // with the director's photo (if any) and bio text. Nothing shows if there are no bios.
+  function setupBioDialog() {
+    const dialog = document.getElementById("bio-dialog");
+    if (!dialog) return;
+
+    function close() {
+      if (typeof dialog.close === "function") dialog.close();
+      else dialog.removeAttribute("open");
+    }
+    dialog.querySelectorAll("[data-close-bio]").forEach(function (button) {
+      button.addEventListener("click", close);
+    });
+    // a click on the dark area around the pop-up closes it (clicks inside land on the inner box)
+    dialog.addEventListener("click", function (event) {
+      if (event.target === dialog) close();
+    });
+  }
+
+  function openBio(bio) {
+    const dialog = document.getElementById("bio-dialog");
+    if (!dialog) return;
+
+    const photo = document.getElementById("bio-dialog-photo");
+    if (bio.photo) {
+      photo.src = "assets/img/directors/" + encodeURIComponent(bio.photo);
+      photo.alt = bio.name;
+      photo.style.display = "";
+    } else {
+      photo.removeAttribute("src");
+      photo.style.display = "none";
+    }
+
+    document.getElementById("bio-dialog-name").textContent = bio.name;
+    document.getElementById("bio-dialog-group").textContent = bio.group || "";
+
+    const text = document.getElementById("bio-dialog-text");
+    text.innerHTML = "";
+    bio.paragraphs.forEach(function (paragraph) {
+      text.appendChild(el("p", { text: paragraph }));
+    });
+
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  }
+
+  function renderBios(bios) {
+    const block = document.getElementById("bios-block");
+    const buttons = document.getElementById("bios-buttons");
+    if (!block || !buttons) return;
+
+    buttons.innerHTML = "";
+    if (!bios || !bios.length) {
+      block.style.display = "none";
+      return;
+    }
+
+    bios.forEach(function (bio) {
+      const button = el("button", { className: "btn btn-outline-light p-3 bio-btn" });
+      button.type = "button";
+      if (bio.group) {
+        button.appendChild(document.createTextNode(bio.group));
+        button.appendChild(document.createElement("br"));
+      }
+      button.appendChild(document.createTextNode(bio.name));
+      button.addEventListener("click", function () {
+        openBio(bio);
+      });
+      buttons.appendChild(button);
+    });
+    block.style.display = "";
+  }
+
   function renderProgram(program) {
     const container = document.getElementById("program-container");
     if (!container) return;
@@ -417,7 +329,18 @@
 
     (program.groups || []).forEach(function (group) {
       const item = el("div", { className: "col-lg-12 program-item" });
-      item.appendChild(el("h2", { className: "text-center mb-4", html: "<span>" + group.name + "</span>" }));
+      const heading = el("h2", { className: group.directors ? "text-center mb-2" : "text-center mb-4" });
+      heading.appendChild(el("span", { text: group.name }));
+      item.appendChild(heading);
+
+      // optional, for joint concerts: the group's director(s) under its name
+      if (group.directors) {
+        const label = /,|&|\band\b|\//i.test(group.directors) ? "Directors: " : "Director: ";
+        const directorsLine = el("p", { className: "text-center mb-4 program-directors" });
+        directorsLine.appendChild(document.createTextNode(label));
+        directorsLine.appendChild(el("em", { text: group.directors }));
+        item.appendChild(directorsLine);
+      }
 
       const tableWrap = el("div", { className: "table-responsive rounded" });
       const table = el("table", { className: "table table-borderless" });
@@ -463,13 +386,21 @@
 
     if (filters) {
       filters.innerHTML = "";
-      const allLi = el("li", { text: "All" });
+      // list items that behave as buttons: reachable with Tab, activated with Enter or Space
+      const makeButton = function (li, active) {
+        li.setAttribute("role", "button");
+        li.setAttribute("tabindex", "0");
+        li.setAttribute("aria-pressed", active ? "true" : "false");
+        return li;
+      };
+
+      const allLi = makeButton(el("li", { text: "All" }), true);
       allLi.setAttribute("data-filter", "*");
       allLi.classList.add("filter-active-students");
       filters.appendChild(allLi);
 
       groups.forEach(function (g, i) {
-        const li = el("li", { text: g.name });
+        const li = makeButton(el("li", { text: g.name }), false);
         li.setAttribute("data-filter", "." + groupFilterClasses[i]);
         filters.appendChild(li);
       });
@@ -515,11 +446,19 @@
       const studentsFilters = [...document.querySelectorAll("#students-filters li")];
 
       studentsFilters.forEach(function (li) {
+        li.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            this.click();
+          }
+        });
         li.addEventListener("click", function () {
           studentsFilters.forEach(function (other) {
             other.classList.remove("filter-active-students");
+            other.setAttribute("aria-pressed", "false");
           });
           this.classList.add("filter-active-students");
+          this.setAttribute("aria-pressed", "true");
 
           studentsIsotope.arrange({ filter: this.getAttribute("data-filter") });
           studentsIsotope.on("arrangeComplete", function () {
@@ -566,10 +505,16 @@
       renderConcertInfo(data.info);
       renderProgram(data.program);
       renderStudents(data.students);
+      renderBios(data.bios);
+      setupBioDialog();
 
       initIsotope();
     } catch (err) {
       console.error("Failed to load concert data:", err);
+    } finally {
+      // the top of the page stays hidden until the real content is in, so the template's
+      // placeholder text never flashes (see "data-ready" in style.css)
+      document.body.classList.add("data-ready");
     }
   }
 

@@ -8,6 +8,9 @@
   <title>YEAR GROUP Concert Program</title>
   <meta content="" name="description">
   <meta content="" name="keywords">
+  <!-- Keeps the site out of search engines (people with the link can still open it).
+       Delete this line, and the matching block in netlify.toml, to make it searchable. -->
+  <meta name="robots" content="noindex, nofollow">
 
   <!-- Favicons -->
   <link href="assets/img/favicon.png" rel="icon">
@@ -17,17 +20,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Caveat&family=Kaushan+Script&family=Playfair+Display&family=Poppins:wght@300;400&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Caveat&family=Kaushan+Script&family=Playfair+Display&family=Poppins:wght@300;400;600&display=swap"
     rel="stylesheet">
 
   <!-- Vendor CSS Files -->
-  <link href="assets/vendor/animate.css/animate.min.css" rel="stylesheet">
   <link href="assets/vendor/aos/aos.css" rel="stylesheet">
   <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  <noscript><style>#hero .container, #header .logo { visibility: visible !important; }</style></noscript>
 
 </head>
 
@@ -37,7 +40,7 @@
   <header id="header" class="fixed-top d-flex align-items-cente">
     <div class="container-fluid container-xl d-flex align-items-center justify-content-lg-between">
 
-      <h1 class="logo me-auto me-lg-0"><a href="index.html" id="header-title-text">YEAR TITLE Concert</a></h1>
+      <div class="logo me-auto me-lg-0"><a href="index.html" id="header-title-text">YEAR TITLE Concert</a></div>
       <!--! Uncomment below if you prefer to use an image logo -->
       <!-- <a href="index.html" class="logo me-auto me-lg-0"><img src="assets/img/logo.png" alt="" class="img-fluid"></a> -->
 
@@ -59,8 +62,10 @@
     <div class="container position-relative text-center text-lg-start" data-aos="zoom-in" data-aos-delay="100">
       <div class="row">
         <div class="col-lg-12">
-          <h1 class="text-center mb-2 mt-4"><span id="concert-school-name">GROUP</span></h1>
-          <h1 class="text-center mt-4 mb-2" id="concert-name">TITLE Concert</h1>
+          <h1 class="text-center mb-2 mt-4">
+            <span id="concert-school-name">GROUP</span>
+            <span id="concert-name">TITLE Concert</span>
+          </h1>
           <hr>
           <h2 class="text-center" id="concert-datetime-location">DATE<br>TIME<br>LOCATION</h2>
           <hr>
@@ -70,14 +75,15 @@
             <h2 class="text-center text-decoration-underline">Accompanist</h2>
             <h2 class="text-center" id="accompanist-name"></h2>
           </div>
-          <!-- todo adjust below for action button -->
-          <!-- !Uncomment for livestream link or action button -->
-          <!-- <div class="btns">
-            <a href="#"
-              target="_blank" class="btn-book animated fadeInUp mt-3">
-              Live Stream
-            </a>
-          </div> -->
+          <!-- Director bios: from the Bios tab of the spreadsheet. Hidden when there are none. -->
+          <div id="bios-block" style="display:none;">
+            <h2 class="text-center text-decoration-underline mt-4 mb-4">Director Bios</h2>
+            <div id="bios-buttons" class="d-flex justify-content-around flex-wrap gap-3"></div>
+          </div>
+          <!-- Livestream button: from "Livestream Link" in the spreadsheet. Hidden when it's empty. -->
+          <div class="btns" id="livestream-block" style="display:none;">
+            <a id="livestream-link" href="#" target="_blank" rel="noopener" class="btn-book">&#127909; LIVE STREAM &#127909;</a>
+          </div>
         </div>
       </div>
     </div>
@@ -111,7 +117,7 @@
 
         <div class="row" data-aos="fade-up" data-aos-delay="100">
           <div class="col-lg-12 d-flex justify-content-center">
-            <ul id="students-filters">
+            <ul id="students-filters" role="group" aria-label="Show students from one group">
               <!-- Filter buttons are rendered here by assets/js/render.js from the group tabs of data/concert-data.xlsx -->
             </ul>
           </div>
@@ -150,21 +156,35 @@
   </footer>
   <!-- End Footer -->
 
+  <!-- Director bio pop-up, opened by the buttons in the top section -->
+  <dialog id="bio-dialog" aria-labelledby="bio-dialog-name">
+    <div class="bio-dialog-inner">
+      <button type="button" class="bio-close" data-close-bio aria-label="Close">&times;</button>
+      <img id="bio-dialog-photo" class="bio-photo" alt="" style="display:none;">
+      <h3 id="bio-dialog-name"></h3>
+      <p id="bio-dialog-group" class="bio-group"></p>
+      <div id="bio-dialog-text"></div>
+      <button type="button" class="btn btn-outline-light mt-3" data-close-bio>Close</button>
+    </div>
+  </dialog>
+
   <div id="preloader"></div>
   <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i
       class="bi bi-arrow-up-short"></i></a>
 
   <!-- Vendor JS Files -->
   <script src="assets/vendor/aos/aos.js"></script>
-  <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="assets/vendor/isotope-layout/isotope.pkgd.min.js"></script>
-  <script src="assets/vendor/xlsx/xlsx.full.min.js"></script>
 
-  <!-- Loads content from data/concert-data.xlsx (falls back to data/*.json if it's missing) -->
+  <!-- Fills the page from data/site-data.json (made when the site is published), or from the
+       spreadsheet in data/ if that isn't there. The spreadsheet reader is only loaded when needed. -->
   <script src="assets/js/render.js"></script>
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
+
+  <!-- safety: never leave the top of the page hidden, even if the data can't be loaded -->
+  <script>setTimeout(function () { document.body.classList.add("data-ready"); }, 8000);</script>
 
 </body>
 

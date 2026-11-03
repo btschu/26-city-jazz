@@ -720,6 +720,17 @@ section {
   color: var(--primary-color);
 }
 
+/* the closing message sits in a thin primary-color frame that hugs the text */
+#footer #closing-statement {
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  margin: 0 auto 20px;
+  padding: 22px 36px;
+  line-height: 1.2;
+  border: 2px solid var(--primary-color);
+  border-radius: 14px;
+}
+
 /* the "Thank You" heading matches the other section titles (Program, Students) */
 #footer #thank-you-heading {
   color: var(--primary-color);

@@ -295,6 +295,39 @@
       .replace(/(^-|-$)/g, "");
   }
 
+  // Top-left header. By default: the year (taken from the Date) followed by the concert name
+  // (Big Title Line 2), with the concert name in the primary color - e.g. "2026 City Jazz Concert".
+  // If "Top-Left Header Text" is filled in, that text is used instead, and the concert name is
+  // still shown in the primary color wherever it appears inside it.
+  function renderHeaderTitle(el, info) {
+    if (!el) return;
+    const name = (info.concertTitleLine2 || "").trim();
+    const custom = (info.headerTitle || "").trim();
+    el.textContent = "";
+
+    function accent(text) {
+      const span = document.createElement("span");
+      span.textContent = text;
+      el.appendChild(span);
+    }
+
+    if (custom) {
+      const at = name ? custom.toLowerCase().indexOf(name.toLowerCase()) : -1;
+      if (at === -1) {
+        el.textContent = custom;
+      } else {
+        el.appendChild(document.createTextNode(custom.slice(0, at)));
+        accent(custom.slice(at, at + name.length));
+        el.appendChild(document.createTextNode(custom.slice(at + name.length)));
+      }
+      return;
+    }
+
+    const year = (info.concertDate || "").match(/\b(?:19|20)\d{2}\b/);
+    if (year) el.appendChild(document.createTextNode(year[0] + " "));
+    if (name) accent(name);
+  }
+
   function renderConcertInfo(info) {
     // The tab title and top-left header are optional; if left blank, build
     // them from the big title so people don't have to type the same thing twice.
@@ -324,8 +357,7 @@
       hero.style.backgroundImage = 'url("' + info.heroImage + '")';
     }
 
-    const headerTitle = document.getElementById("header-title-text");
-    if (headerTitle) headerTitle.textContent = info.headerTitle || info.concertTitleLine2 || "";
+    renderHeaderTitle(document.getElementById("header-title-text"), info);
 
     const schoolName = document.getElementById("concert-school-name");
     if (schoolName) schoolName.textContent = info.concertTitleLine1 || "";
@@ -469,14 +501,17 @@
   function initIsotope() {
     if (typeof Isotope === "undefined") return;
 
+    const layouts = [];
+
     const programContainer = document.querySelector(".program-container");
     if (programContainer) {
-      new Isotope(programContainer, { itemSelector: ".program-item", layoutMode: "fitRows" });
+      layouts.push(new Isotope(programContainer, { itemSelector: ".program-item", layoutMode: "fitRows" }));
     }
 
     const studentsContainer = document.querySelector(".students-container");
     if (studentsContainer) {
       const studentsIsotope = new Isotope(studentsContainer, { itemSelector: ".students-item", layoutMode: "fitRows" });
+      layouts.push(studentsIsotope);
       const studentsFilters = [...document.querySelectorAll("#students-filters li")];
 
       studentsFilters.forEach(function (li) {
@@ -491,6 +526,35 @@
             if (window.AOS) AOS.refresh();
           });
         });
+      });
+    }
+
+    // Isotope measures each box's height once, when it starts. Web fonts and other late content can
+    // change those heights afterwards, which leaves odd gaps or overlaps until the page is refreshed.
+    // So measure again when fonts and the page have finished loading, and whenever a box changes size.
+    function relayout() {
+      layouts.forEach(function (iso) {
+        iso.layout();
+      });
+      if (window.AOS) AOS.refresh();
+    }
+    if (document.fonts) {
+      if (document.fonts.ready) document.fonts.ready.then(relayout);
+      // fires every time another font finishes loading, including ones that load later
+      if (document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", relayout);
+    }
+    window.addEventListener("load", relayout);
+    // a couple of cheap safety re-checks shortly after the page starts
+    setTimeout(relayout, 400);
+    setTimeout(relayout, 1500);
+    if (typeof ResizeObserver !== "undefined") {
+      let timer;
+      const observer = new ResizeObserver(function () {
+        clearTimeout(timer);
+        timer = setTimeout(relayout, 60);
+      });
+      document.querySelectorAll(".program-item, .students-item").forEach(function (item) {
+        observer.observe(item);
       });
     }
   }

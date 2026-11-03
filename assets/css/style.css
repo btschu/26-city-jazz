@@ -164,6 +164,39 @@ a:hover {
   max-height: 40px;
 }
 
+/* Print button in the top bar: a small outlined pill (just the icon on narrow phones) */
+#header .header-print {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 14px 0 0;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--white-color);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50px;
+  transition: 0.3s;
+}
+
+#header .header-print .bi {
+  font-size: 15px;
+}
+
+#header .header-print:hover,
+#header .header-print:focus-visible {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+@media (min-width: 992px) {
+  #header .header-print {
+    margin: 0 0 0 28px;
+  }
+}
+
 /*--------------------------------------------------------------
 # Navigation program
 --------------------------------------------------------------*/
@@ -584,6 +617,33 @@ section {
   font-family: var(--secondary-title-font);
 }
 
+/* find a student by name */
+#students-search {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto 18px;
+  padding: 10px 18px;
+  font-family: var(--default-font);
+  font-size: 15px;
+  color: var(--white-color);
+  background: rgba(12, 11, 9, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50px;
+}
+
+#students-search::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+#students-search:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.search-hidden {
+  display: none !important;
+}
+
 .students #students-filters {
   padding: 0;
   margin: 0 auto 0 auto;
@@ -682,6 +742,20 @@ section {
   font-family: "Poppins", sans-serif;
   /* list-style: none; */
   color: rgba(255, 255, 255, 0.5);
+}
+
+/* movements of a longer piece: numbered lines under the title, not italic like the soloists */
+.table ul.movements {
+  list-style: none;
+  padding-left: 14px;
+  margin-top: 4px;
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* soloists listed after movements need a little room */
+.table ul.movements + ul {
+  margin-top: 6px;
 }
 
 @media (max-width: 900px) {
@@ -822,6 +896,10 @@ section {
 /*--------------------------------------------------------------
 # Printing: plain black text on white, every group shown, no buttons or photo
 --------------------------------------------------------------*/
+@page {
+  margin: 0.5in;
+}
+
 @media print {
   #header,
   #preloader,
@@ -829,9 +907,16 @@ section {
   #students-filters,
   #bios-block,
   #livestream-block,
+  #students-search,
+  #students-search-empty,
   #bio-dialog,
   #hero:before {
     display: none !important;
+  }
+
+  /* anything the name search hid on screen prints anyway */
+  .search-hidden {
+    display: revert !important;
   }
 
   body,
@@ -848,10 +933,28 @@ section {
     visibility: visible !important;
   }
 
+  /* page 1: title, concert info and directors, centered on the page */
   #hero {
-    min-height: 0 !important;
-    padding: 0 0 12px !important;
+    min-height: 80vh !important;
+    padding: 0 !important;
     background-image: none !important;
+  }
+
+  /* page 2: the program, page 3: the students, page 4: the thank-yous */
+  #program,
+  #students,
+  #footer {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  #footer {
+    border-top: 0 !important;
+    padding: 40px 0 0 !important;
+  }
+
+  #footer #closing-statement {
+    border-color: #000 !important;
   }
 
   #hero .container {
@@ -893,6 +996,121 @@ section {
     background: #fff !important;
     border: 1px solid #999;
     margin-bottom: 12px;
+  }
+
+  /* compact type, and the program and student lists flow into columns, so they take few pages */
+  .section-title {
+    padding-bottom: 8px;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .section-title p {
+    font-size: 24pt !important;
+  }
+
+  #program {
+    width: 100% !important;
+  }
+
+  #program .container,
+  #students .container {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* program: two columns of groups */
+  .program-container {
+    display: block !important;
+    columns: 2;
+    column-gap: 22px;
+    margin: 0 !important;
+  }
+
+  .program .program-item {
+    margin-bottom: 8px;
+    padding: 0 !important;
+  }
+
+  .program-item h2 {
+    font-size: 14pt !important;
+    margin-bottom: 3px !important;
+  }
+
+  .program-item .program-directors {
+    font-size: 9pt;
+    margin-bottom: 4px !important;
+  }
+
+  .program-item .table,
+  .program-item .table td {
+    font-size: 9pt;
+    padding: 1px 0 !important;
+    line-height: 1.25;
+  }
+
+  .program-item .table ul {
+    font-size: 8pt;
+    line-height: 1.2;
+  }
+
+  .program-item .table-responsive {
+    overflow: visible;
+  }
+
+  /* students: groups flow down four columns */
+  .students-container {
+    display: block !important;
+    columns: 4;
+    column-gap: 8px;
+    margin: 0 !important;
+  }
+
+  /* a group may continue in the next column, but an instrument's names stay together */
+  .students-item {
+    padding: 0 !important;
+    margin: 0 0 6px !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .students .box {
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    background: none !important;
+  }
+
+  .students .box span {
+    font-size: 11pt !important;
+    margin-bottom: 2px !important;
+    padding-bottom: 1px;
+    border-bottom: 1px solid #000;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .students-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .students .box h4 {
+    font-size: 8pt !important;
+    margin: 3px 0 1px !important;
+  }
+
+  .students .box ul {
+    margin: 0 !important;
+  }
+
+  .students .box li {
+    font-size: 8pt;
+    line-height: 1.2;
+  }
+
+  #footer h3 {
+    font-size: 30pt !important;
   }
 
   [data-aos] {

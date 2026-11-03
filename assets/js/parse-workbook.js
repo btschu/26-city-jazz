@@ -1,6 +1,6 @@
 /**
  * Turns the concert spreadsheet (a SheetJS workbook) into plain data:
- *   { info, program, students, bios }
+ *   { info, program, students, bios, warnings }
  *
  * Used in two places, so the result is always the same:
  *   - scripts/prepare-site.js, when Netlify publishes the site (it saves the result as data/site-data.json);
@@ -128,9 +128,20 @@
       "directors",
       "director",
     ],
+    // optional: the parts of a longer piece, one per line; shown numbered under the song title
+    movements: ["movements (optional)", "movements", "movement", "parts of this piece"],
   };
 
-  function parseProgramSheet(XLSX, sheet) {
+  // a movement typed as "1. Chaconne" or "2) Toccata" is shown as "1. Chaconne" / "2. Toccata" either way
+  function parseMovements(value) {
+    return splitLines(value).map(function (line) {
+      return line.replace(/^\d+\s*[.)]\s*/, "");
+    }).filter(Boolean);
+  }
+
+  // Besides the data, the parse functions note anything that looks like a mistake in `warnings`
+  // (scripts/prepare-site.js prints them when the site is published).
+  function parseProgramSheet(XLSX, sheet, warnings) {
     const rows = readRows(XLSX, sheet);
     const headerIndex = rows.findIndex(function (row) {
       return findColumn(row.map(normalizeLabel), PROGRAM_HEADERS.title) !== -1;
@@ -143,6 +154,7 @@
     const composerCol = findColumn(headers, PROGRAM_HEADERS.composer);
     const infoCol = findColumn(headers, PROGRAM_HEADERS.info);
     const directorsCol = findColumn(headers, PROGRAM_HEADERS.directors);
+    const movementsCol = findColumn(headers, PROGRAM_HEADERS.movements);
 
     const groups = [];
     const groupsByName = new Map();
@@ -150,7 +162,14 @@
 
     rows.slice(headerIndex + 1).forEach(function (row) {
       const title = cellText(row[titleCol]);
-      if (!title) return;
+      if (!title) {
+        // text in the other boxes but no song title: that row is skipped, which is probably not what was meant
+        const stray = [composerCol, infoCol, movementsCol].some(function (c) {
+          return c !== -1 && cellText(row[c]);
+        });
+        if (stray) warnings.push('Program tab: a row has a composer, notes or movements but no Song Title, so it is left out ("' + (cellText(row[composerCol]) || cellText(row[infoCol]) || "...").slice(0, 40) + '").');
+        return;
+      }
 
       let groupName = groupCol === -1 ? "" : cellText(row[groupCol]);
       if (groupName) {
@@ -158,7 +177,10 @@
       } else {
         groupName = lastGroupName;
       }
-      if (!groupName) return;
+      if (!groupName) {
+        warnings.push('Program tab: the song "' + title + '" has no Group Name above it, so it is left out.');
+        return;
+      }
 
       const composer = composerCol === -1 ? "" : cellText(row[composerCol]);
       const info = infoCol === -1 ? [] : splitLines(row[infoCol]);
@@ -169,12 +191,21 @@
         groupsByName.set(groupName, group);
         groups.push(group);
       }
-      group.songs.push({ title: title, composer: composer, info: info });
+      const song = { title: title, composer: composer, info: info };
+      const movements = movementsCol === -1 ? [] : parseMovements(row[movementsCol]);
+      if (movements.length) song.movements = movements;
+      group.songs.push(song);
 
       // the group's directors: typed once, on a row of that group (the first one found is used)
       if (directorsCol !== -1 && !group.directors) {
         const directors = splitLines(row[directorsCol]).join(", ");
         if (directors) group.directors = directors;
+      }
+    });
+
+    groups.forEach(function (group) {
+      if (/^type group name here$/i.test(group.name)) {
+        warnings.push('Program tab: songs are listed under "' + group.name + '" - the group name was never filled in.');
       }
     });
 
@@ -190,7 +221,7 @@
     bio: ["bio", "bio text", "biography"],
   };
 
-  function parseBiosSheet(XLSX, sheet) {
+  function parseBiosSheet(XLSX, sheet, warnings) {
     const rows = readRows(XLSX, sheet);
     const headerIndex = rows.findIndex(function (row) {
       return findColumn(row.map(normalizeLabel), BIO_HEADERS.name) !== -1;
@@ -208,9 +239,17 @@
     rows.slice(headerIndex + 1).forEach(function (row) {
       const name = cellText(row[nameCol]);
       const paragraphs = splitLines(row[bioCol]);
-      if (!name || !paragraphs.length) return;
+      if (!name || !paragraphs.length) {
+        if (name || paragraphs.length) {
+          warnings.push("Bios tab: " + (name ? '"' + name + '" has no bio text' : "a bio has no director name") + ", so that row is left out.");
+        }
+        return;
+      }
 
       const photo = photoCol === -1 ? "" : cellText(row[photoCol]);
+      if (photo && !/^[^\/\\:]+\.(jpe?g|png|webp|gif)$/i.test(photo)) {
+        warnings.push('Bios tab: the photo for "' + name + '" should be just a file name like "olson.jpg" (not a path or web address), so no photo is shown.');
+      }
       bios.push({
         group: groupCol === -1 ? "" : cellText(row[groupCol]),
         name: name,
@@ -273,6 +312,7 @@
     let program = { groups: [] };
     let bios = [];
     const studentGroups = [];
+    const warnings = [];
 
     workbook.SheetNames.forEach(function (name) {
       const normalized = name.trim().toLowerCase();
@@ -280,16 +320,16 @@
       if (normalized === "concert info") {
         info = parseConcertInfoSheet(XLSX, sheet);
       } else if (normalized === "program") {
-        program = parseProgramSheet(XLSX, sheet);
+        program = parseProgramSheet(XLSX, sheet, warnings);
       } else if (normalized === "bios") {
-        bios = parseBiosSheet(XLSX, sheet);
+        bios = parseBiosSheet(XLSX, sheet, warnings);
       } else if (!RESERVED_SHEET_NAMES.has(normalized)) {
         const group = parseStudentGroupSheet(XLSX, sheet, name);
         if (group) studentGroups.push(group);
       }
     });
 
-    return { info: info, program: program, students: { groups: studentGroups }, bios: bios };
+    return { info: info, program: program, students: { groups: studentGroups }, bios: bios, warnings: warnings };
   }
 
   return { parseWorkbook: parseWorkbook };

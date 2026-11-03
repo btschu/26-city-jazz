@@ -44,6 +44,11 @@
       <!--! Uncomment below if you prefer to use an image logo -->
       <!-- <a href="index.html" class="logo me-auto me-lg-0"><img src="assets/img/logo.png" alt="" class="img-fluid"></a> -->
 
+      <!-- Print button: opens the print dialog (the page prints as a 4-page program) -->
+      <a href="#" data-print class="header-print order-lg-1" role="button" aria-label="Print this program">
+        <i class="bi bi-printer" aria-hidden="true"></i><span class="d-none d-sm-inline"> Print</span>
+      </a>
+
       <nav id="navbar" class="navbar order-last order-lg-0">
         <ul>
           <li><a class="nav-link scrollto active" href="#hero">Home</a></li>
@@ -117,11 +122,16 @@
 
         <div class="row" data-aos="fade-up" data-aos-delay="100">
           <div class="col-lg-12 d-flex justify-content-center">
+            <input type="search" id="students-search" placeholder="Search for a student" aria-label="Search for a student by name" autocomplete="off">
+          </div>
+          <div class="col-lg-12 d-flex justify-content-center">
             <ul id="students-filters" role="group" aria-label="Show students from one group">
               <!-- Filter buttons are rendered here by assets/js/render.js from the group tabs of data/concert-data.xlsx -->
             </ul>
           </div>
         </div>
+
+        <p id="students-search-empty" class="text-center mt-4" role="status" style="display:none;">No students match that name.</p>
 
         <div class="row students-container mt-4" id="students-container">
           <!-- Student groups are rendered here by assets/js/render.js from the group tabs of data/concert-data.xlsx -->

@@ -378,6 +378,15 @@
         const tdTitle = el("td");
         tdTitle.appendChild(document.createTextNode(song.title || ""));
 
+        // optional movements of a longer piece, numbered 1, 2, 3...
+        if (Array.isArray(song.movements) && song.movements.length) {
+          const movementList = el("ul", { className: "movements" });
+          song.movements.forEach(function (movement, n) {
+            movementList.appendChild(el("li", { text: n + 1 + ". " + movement }));
+          });
+          tdTitle.appendChild(movementList);
+        }
+
         const infoItems = Array.isArray(song.info) ? song.info : song.info ? [song.info] : [];
         if (infoItems.length) {
           const ul = el("ul");
@@ -441,14 +450,17 @@
       box.appendChild(el("span", { className: "text-center", text: g.name }));
 
       (g.sections || []).forEach(function (sec) {
+        // each instrument block (title + names) is wrapped so the name search can hide a whole block
+        const block = el("div", { className: "students-section" });
         if (sec.instrument && sec.instrument.trim()) {
-          box.appendChild(el("h4", { text: sec.instrument }));
+          block.appendChild(el("h4", { text: sec.instrument }));
         }
         const ul = el("ul");
         (sec.students || []).forEach(function (name) {
           ul.appendChild(el("li", { text: name }));
         });
-        box.appendChild(ul);
+        block.appendChild(ul);
+        box.appendChild(block);
       });
 
       col.appendChild(box);
@@ -472,6 +484,45 @@
       layouts.push(studentsIsotope);
       const studentsFilters = [...document.querySelectorAll("#students-filters li")];
 
+      // what is currently shown: the chosen group button AND the text in the name search
+      let groupFilter = "*";
+      let searchTerm = "";
+
+      const normalize = function (text) {
+        return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+      };
+
+      function applyStudentView() {
+        const term = normalize(searchTerm);
+        let cardsShown = 0;
+        studentsContainer.querySelectorAll(".students-item").forEach(function (card) {
+          let hits = 0;
+          card.querySelectorAll(".students-section").forEach(function (block) {
+            let blockHits = 0;
+            block.querySelectorAll("li").forEach(function (li) {
+              const match = !term || normalize(li.textContent).indexOf(term) !== -1;
+              li.classList.toggle("search-hidden", !match);
+              if (match) blockHits++;
+            });
+            block.classList.toggle("search-hidden", term !== "" && blockHits === 0);
+            hits += blockHits;
+          });
+          card.setAttribute("data-hits", String(hits));
+        });
+
+        studentsIsotope.arrange({
+          filter: function (card) {
+            const inGroup = groupFilter === "*" || card.matches(groupFilter);
+            const hasHits = card.getAttribute("data-hits") !== "0";
+            if (inGroup && hasHits) cardsShown++;
+            return inGroup && hasHits;
+          },
+        });
+
+        const empty = document.getElementById("students-search-empty");
+        if (empty) empty.style.display = term && cardsShown === 0 ? "" : "none";
+      }
+
       studentsFilters.forEach(function (li) {
         li.addEventListener("keydown", function (event) {
           if (event.key === "Enter" || event.key === " ") {
@@ -487,12 +538,25 @@
           this.classList.add("filter-active-students");
           this.setAttribute("aria-pressed", "true");
 
-          studentsIsotope.arrange({ filter: this.getAttribute("data-filter") });
-          studentsIsotope.on("arrangeComplete", function () {
-            if (window.AOS) AOS.refresh();
-          });
+          groupFilter = this.getAttribute("data-filter");
+          applyStudentView();
         });
       });
+      studentsIsotope.on("arrangeComplete", function () {
+        if (window.AOS) AOS.refresh();
+      });
+
+      const searchBox = document.getElementById("students-search");
+      if (searchBox) {
+        let searchTimer;
+        searchBox.addEventListener("input", function () {
+          clearTimeout(searchTimer);
+          searchTimer = setTimeout(function () {
+            searchTerm = searchBox.value;
+            applyStudentView();
+          }, 120);
+        });
+      }
     }
 
     // Isotope measures each box's height once, when it starts. Web fonts and other late content can
@@ -525,6 +589,16 @@
     }
   }
 
+  // "Print" buttons: the browser's print dialog (the page has its own print layout, see style.css)
+  function setupPrintButtons() {
+    document.querySelectorAll("[data-print]").forEach(function (button) {
+      button.addEventListener("click", function (event) {
+        event.preventDefault();
+        window.print();
+      });
+    });
+  }
+
   async function init() {
     try {
       const data = await loadConcertData();
@@ -534,6 +608,7 @@
       renderStudents(data.students);
       renderBios(data.bios);
       setupBioDialog();
+      setupPrintButtons();
 
       initIsotope();
     } catch (err) {
